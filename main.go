@@ -13,22 +13,25 @@ import (
 )
 
 func main() {
+	fmt.Println("Reading credential.json file")
 	b, err := ioutil.ReadFile("credentials.json")
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		log.Fatalf("Unable to read client secret file: %v\n", err)
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
 	config, err := google.ConfigFromJSON(b, drive.DriveScope, drive.DriveFileScope)
 	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
+		log.Fatalf("Unable to parse client secret file to config: %v\n", err)
 	}
 	client := auth.GetClient(config)
+
+	fmt.Println("Retrieving google drive client configuration")
 
 	ctx := context.Background()
 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		log.Fatalf("Unable to retrieve Drive client: %v", err)
+		log.Fatalf("Unable to retrieve Drive client: %v\n", err)
 	}
 
 	firstCall := true
@@ -40,6 +43,9 @@ func main() {
 	// TODO: Change the following email to unshare everything in google drive with the person
 	emailToUnshare := "someonesEmail@gmail.com"
 
+	fmt.Printf("Starting to read google drive files in pages of size %d, erasing all access for "+
+		"the user with the email: %s\n", pageSize, emailToUnshare)
+
 	for nextPageToken != "" || firstCall {
 		firstCall = false
 		r, err := srv.Files.List().PageSize(pageSize).PageToken(nextPageToken).
@@ -50,7 +56,7 @@ func main() {
 		}
 		nextPageToken = r.NextPageToken
 		pageGlobalCounter += 1
-		fmt.Printf("Page %d:\n", pageGlobalCounter)
+		fmt.Printf("Reading google drive page number %d:\n", pageGlobalCounter)
 		if len(r.Files) == 0 {
 			fmt.Println("No files found.")
 		} else {
@@ -61,7 +67,7 @@ func main() {
 				}
 				for _, per := range i.Permissions {
 					if strings.Contains(per.EmailAddress, emailToUnshare) {
-						fmt.Printf("ALERT - fileName: \"%s\", fileId: \"%s\", permissionId: \"%s\" , role: %s, email: %s (%s)\n", i.Name, i.Id, per.Id, per.Role, per.EmailAddress, per.DisplayName)
+						fmt.Printf("About to unshare - fileName: \"%s\", fileId: \"%s\", permissionId: \"%s\" , role: %s, email: %s (%s)", i.Name, i.Id, per.Id, per.Role, per.EmailAddress, per.DisplayName)
 						// before deleting permission, copy un-owned items
 						if per.Role == "owner" {
 							copiedFile := &drive.File{
@@ -70,22 +76,22 @@ func main() {
 
 							res, err := srv.Files.Copy(i.Id, copiedFile).Do()
 							if err != nil {
-								fmt.Printf("An error occurred when copying: %v+\n", err)
+								fmt.Printf("\nAn error occurred when copying: %v+\n", err)
 							} else {
-								fmt.Printf("copied file: %v+\n", res)
+								fmt.Printf("- file copied to my drive: %v+\n", res)
 							}
 						}
 
-						fmt.Printf("Deleting the permission\n")
 						delErr := srv.Permissions.Delete(i.Id, per.Id).Do()
 						if delErr != nil {
-							fmt.Printf("An error occurred: %v+\n", delErr)
+							fmt.Printf("\nAn error occurred: %v+\n", delErr)
 						}
+						fmt.Printf("- unshared\n")
 					}
 
 					// every 20 files print to show progress
 					if filesGlobalCounter%skipGapForPrintPurposes == 0 {
-						fmt.Printf("Normal - id: %s, role: %s, email: %s (%s)\n", per.Id, per.Role, per.EmailAddress, per.DisplayName)
+						fmt.Printf("Randomly printing a file name to show progress, not unsharing it - id: %s, role: %s, email: %s (%s)\n", per.Id, per.Role, per.EmailAddress, per.DisplayName)
 					}
 				}
 			}
