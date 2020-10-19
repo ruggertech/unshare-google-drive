@@ -8,4 +8,6 @@ all the files in your google drive.
 and download the file `credentials.json`.  Put it in the application directory.
 3. In the command line type:
 `make run` and follow the instructions
+
+The code uses google drive apis v3:  https://developers.google.com/drive/api/v3/reference
  
